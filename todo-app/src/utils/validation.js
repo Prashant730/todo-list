@@ -23,20 +23,16 @@ export const validateTask = (task) => {
     errors.priority = 'Invalid priority level'
   }
 
-  if (
-    task.recurring &&
-    !['none', 'daily', 'weekly', 'monthly'].includes(task.recurring)
-  ) {
-    errors.recurring = 'Invalid recurring option'
-  }
-
-  if (task.tags && Array.isArray(task.tags)) {
-    if (task.tags.length > 10) {
-      errors.tags = 'Maximum 10 tags allowed'
+  if (task.categories && Array.isArray(task.categories)) {
+    if (task.categories.length > 5) {
+      errors.categories = 'Maximum 5 categories allowed'
     }
-    if (task.tags.some((tag) => typeof tag !== 'string' || tag.length > 50)) {
-      errors.tags = 'Tags must be strings with less than 50 characters'
-    }
+    task.categories.forEach((category, index) => {
+      if (typeof category !== 'string' || category.length > 50) {
+        errors.categories =
+          'Each category must be a string with max 50 characters'
+      }
+    })
   }
 
   return {

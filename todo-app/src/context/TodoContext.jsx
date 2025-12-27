@@ -8,7 +8,6 @@ const STORAGE_KEY = 'advanced-todo-app';
 const initialState = {
   tasks: [],
   categories: ['📚 Assignments', '📖 Study', '🧪 Exams', '📝 Projects', '🎯 Personal', '💼 Career', '🏃 Health', '🛒 Shopping'],
-  tags: ['urgent', 'important', 'exam-prep', 'group-work', 'research', 'deadline', 'quick-task', 'review'],
   filter: { status: 'all', priority: 'all', category: 'all', search: '' },
   viewMode: 'list',
   theme: 'light',
@@ -20,7 +19,15 @@ function todoReducer(state, action) {
   let newState;
   switch (action.type) {
     case 'LOAD_STATE':
-      return { ...state, ...action.payload };
+      // Migrate old single category to categories array for backward compatibility
+      const migratedPayload = {
+        ...action.payload,
+        tasks: action.payload.tasks?.map(task => ({
+          ...task,
+          categories: task.categories || (task.category ? [task.category] : [])
+        })) || []
+      };
+      return { ...state, ...migratedPayload };
     case 'ADD_TASK':
       newState = { ...state, tasks: [...state.tasks, { ...action.payload, id: uuidv4(), createdAt: new Date().toISOString(), completedAt: null }] };
       break;
@@ -42,29 +49,9 @@ function todoReducer(state, action) {
         completedAt: !task.completed ? new Date().toISOString() : null
       };
 
-      // Handle recurring tasks
-      let tasksToAdd = [];
-      if (!task.completed && task.recurring && task.recurring !== 'none') {
-        const nextDueDate = calculateNextRecurrence(task.dueDate, task.recurring);
-        if (nextDueDate) {
-          tasksToAdd.push({
-            ...task,
-            id: uuidv4(),
-            completed: false,
-            completedAt: null,
-            dueDate: nextDueDate,
-            createdAt: new Date().toISOString(),
-            title: task.title + ' (Recurring)'
-          });
-        }
-      }
-
       newState = {
         ...state,
-        tasks: [
-          ...state.tasks.map(t => t.id === action.payload ? updatedTask : t),
-          ...tasksToAdd
-        ]
+        tasks: state.tasks.map(t => t.id === action.payload ? updatedTask : t)
       };
       break;
     case 'REORDER_TASKS':
@@ -78,8 +65,6 @@ function todoReducer(state, action) {
       return { ...state, theme: state.theme === 'light' ? 'dark' : 'light' };
     case 'ADD_CATEGORY':
       return { ...state, categories: [...new Set([...state.categories, action.payload])] };
-    case 'ADD_TAG':
-      return { ...state, tags: [...new Set([...state.tags, action.payload])] };
     case 'BULK_UPDATE':
       newState = { ...state, tasks: state.tasks.map(t => action.payload.ids.includes(t.id) ? { ...t, ...action.payload.updates } : t) };
       break;
@@ -88,6 +73,23 @@ function todoReducer(state, action) {
         return { ...state, tasks: state.history[state.historyIndex - 1], historyIndex: state.historyIndex - 1 };
       }
       return state;
+    case 'RESET_PRODUCTIVITY':
+      // Reset productivity-related data while keeping active tasks
+      const resetTasks = state.tasks.map(task => ({
+        ...task,
+        completed: false,
+        completedAt: null,
+        // Keep the task but reset completion status
+      }));
+
+      // Clear analytics cache
+      localStorage.removeItem('ai-analytics-cache');
+
+      newState = {
+        ...state,
+        tasks: resetTasks
+      };
+      break;
     case 'REDO':
       if (state.historyIndex < state.history.length - 1) {
         return { ...state, tasks: state.history[state.historyIndex + 1], historyIndex: state.historyIndex + 1 };
@@ -99,26 +101,6 @@ function todoReducer(state, action) {
   // Save to history for undo/redo
   const newHistory = [...state.history.slice(0, state.historyIndex + 1), newState.tasks];
   return { ...newState, history: newHistory.slice(-50), historyIndex: newHistory.length - 1 };
-}
-
-function calculateNextRecurrence(dueDate, recurring) {
-  if (!dueDate) return null;
-
-  const date = new Date(dueDate);
-  switch (recurring) {
-    case 'daily':
-      date.setDate(date.getDate() + 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    default:
-      return null;
-  }
-  return date.toISOString().slice(0, 16);
 }
 
 export function TodoProvider({ children }) {

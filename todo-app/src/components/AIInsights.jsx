@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FiZap, FiTrendingUp, FiAlertTriangle, FiTarget, FiClock, FiAward, FiRefreshCw, FiChevronDown, FiChevronUp, FiX } from 'react-icons/fi';
+import { FiZap, FiTrendingUp, FiAlertTriangle, FiTarget, FiClock, FiAward, FiRefreshCw, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { aiService } from '../services/aiService.js';
 import { useTodo } from '../context/TodoContext';
-import { format, parseISO, isPast, isToday, differenceInDays, differenceInHours, startOfWeek, endOfWeek, isWithinInterval, subDays } from 'date-fns';
+import { format, parseISO, isPast, isToday, differenceInDays, startOfWeek, endOfWeek, isWithinInterval, subDays } from 'date-fns';
 
-const STORAGE_KEY = 'gemini-api-key';
 const INSIGHTS_CACHE_KEY = 'ai-insights-cache';
 const ANALYSIS_INTERVAL = 5 * 60 * 1000; // Re-analyze every 5 minutes
 
@@ -20,17 +19,6 @@ const getInsightIcon = (type) => {
 
 export default function AIInsights() {
   const { state } = useTodo();
-  const [apiKey, setApiKey] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    // Auto-set the provided API key for testing
-    if (!stored) {
-      const testKey = 'AIzaSyCFvp6CmPJ-JPqSAnaOBjI_eQXIfYqiEXU';
-      localStorage.setItem(STORAGE_KEY, testKey);
-      return testKey;
-    }
-    return stored;
-  });
-  const [showKeyInput, setShowKeyInput] = useState(false);
   const [insights, setInsights] = useState(() => {
     const cached = localStorage.getItem(INSIGHTS_CACHE_KEY);
     return cached ? JSON.parse(cached) : null;
@@ -38,6 +26,8 @@ export default function AIInsights() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [lastAnalysis, setLastAnalysis] = useState(0);
+  const [aiAvailable, setAiAvailable] = useState(false);
+  const [showKeyInput] = useState(false); // Keep for UI consistency
 
   // Calculate local insights (no AI needed)
   const localInsights = useMemo(() => {
@@ -122,9 +112,23 @@ export default function AIInsights() {
     };
   }, [state.tasks]);
 
+  // Check AI availability on mount
+  useEffect(() => {
+    const checkAI = async () => {
+      try {
+        await aiService.initialize();
+        setAiAvailable(true);
+      } catch (error) {
+        console.log('AI service not available:', error.message);
+        setAiAvailable(false);
+      }
+    };
+    checkAI();
+  }, []);
+
   // Generate AI insights
   const generateAIInsights = async () => {
-    if (!apiKey || loading) return;
+    if (!aiAvailable || loading) return;
     if (state.tasks.length === 0) return;
 
     setLoading(true);
@@ -151,7 +155,8 @@ export default function AIInsights() {
 
     } catch (error) {
       console.error('AI Insights Error:', error);
-      // Note: setError function not defined, using console.error instead
+      // Fall back to local insights on error
+      setInsights(null);
     } finally {
       setLoading(false);
     }
@@ -159,18 +164,17 @@ export default function AIInsights() {
 
   // Auto-analyze on mount and when tasks change significantly
   useEffect(() => {
-    if (!apiKey) return;
+    if (!aiAvailable) return;
     const timeSinceLastAnalysis = Date.now() - lastAnalysis;
     if (timeSinceLastAnalysis > ANALYSIS_INTERVAL && state.tasks.length > 0) {
       generateAIInsights();
+      setLastAnalysis(Date.now());
     }
-  }, [apiKey, state.tasks.length, localInsights.overdueTasks.length, localInsights.totalCompleted]);
+  }, [aiAvailable, state.tasks.length, localInsights.overdueTasks.length, localInsights.totalCompleted]);
 
   const saveApiKey = (key) => {
-    setApiKey(key);
-    localStorage.setItem(STORAGE_KEY, key);
-    setShowKeyInput(false);
-    setTimeout(generateAIInsights, 100);
+    // This function is no longer needed as we use centralized AI service
+    console.log('API key management is now handled by the centralized AI service');
   };
 
   const getIcon = (type) => {
@@ -197,10 +201,29 @@ export default function AIInsights() {
     if (localInsights.urgentTasks.length > 3) {
       alerts.push({ type: 'suggestion', text: `🎯 ${localInsights.urgentTasks.length} high-priority tasks pending - consider delegating or rescheduling`, priority: 2 });
     }
-    return alerts.sort((a, b) => a.priority - b.priority);
-  }, [localInsights]);
+    if (localInsights.noDueDateTasks.length > 0) {
+      alerts.push({ type: 'tip', text: `📋 ${localInsights.noDueDateTasks.length} tasks without due dates - consider adding deadlines for better planning`, priority: 3 });
+    }
+    if (localInsights.staleTasks.length > 0) {
+      alerts.push({ type: 'warning', text: `⏰ ${localInsights.staleTasks.length} tasks have been pending for over a week`, priority: 2 });
+    }
+    if (localInsights.bestCategory) {
+      alerts.push({ type: 'achievement', text: `🏆 You're doing great with ${localInsights.bestCategory} tasks!`, priority: 4 });
+    }
+    if (localInsights.avgCompletionHour !== null) {
+      const timeOfDay = localInsights.avgCompletionHour < 12 ? 'morning' : localInsights.avgCompletionHour < 17 ? 'afternoon' : 'evening';
+      alerts.push({ type: 'tip', text: `⏰ You tend to complete tasks in the ${timeOfDay} (around ${localInsights.avgCompletionHour}:00)`, priority: 4 });
+    }
 
-  const displayInsights = insights || quickAlerts;
+    // Always show at least one insight
+    if (alerts.length === 0 && state.tasks.length > 0) {
+      alerts.push({ type: 'tip', text: `📊 You have ${localInsights.totalActive} active tasks and ${localInsights.totalCompleted} completed tasks`, priority: 5 });
+    }
+
+    return alerts.sort((a, b) => a.priority - b.priority);
+  }, [localInsights, state.tasks.length]);
+
+  const displayInsights = insights && insights.length > 0 ? insights : quickAlerts;
 
   // Show welcome message if no tasks
   const welcomeInsights = [
@@ -223,16 +246,15 @@ export default function AIInsights() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {!apiKey && (
-            <button onClick={(e) => { e.stopPropagation(); setShowKeyInput(true); }}
-              className="text-sm px-4 py-2 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-lg hover:shadow-lg transition font-medium">
-              Enable AI
-            </button>
+          {!aiAvailable && (
+            <span className="text-sm px-3 py-1 bg-yellow-500/20 text-yellow-600 rounded-lg">
+              AI Offline - Showing Local Insights
+            </span>
           )}
-          {apiKey && (
+          {aiAvailable && (
             <button onClick={(e) => { e.stopPropagation(); generateAIInsights(); }}
               className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition" title="Refresh insights">
-              <FiRefreshCw size={18} />
+              <FiRefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
           )}
           {expanded ? <FiChevronUp size={20} /> : <FiChevronDown size={20} />}
@@ -243,21 +265,11 @@ export default function AIInsights() {
         <div className="px-4 pb-4 border-t border-purple-500/20">
           <div className="p-4 bg-[var(--bg-secondary)] rounded-xl mt-4">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="font-medium">Setup AI Analysis</h4>
-              <button onClick={() => setShowKeyInput(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                <FiX size={18} />
-              </button>
+              <h4 className="font-medium">AI Configuration</h4>
             </div>
             <p className="text-sm text-[var(--text-secondary)] mb-3">
-              Get your free API key from <a href="https://makersuite.google.com/app/apikey" target="_blank" className="text-purple-500 underline font-medium">Google AI Studio</a>
+              AI is configured through environment variables. Check your .env file for VITE_GROQ_API_KEY, VITE_DEEPSEEK_API_KEY, or VITE_GEMINI_API_KEY.
             </p>
-            <div className="flex gap-3">
-              <input type="password" placeholder="Paste your API key here..."
-                className="input-field flex-1 px-4 py-3 rounded-lg text-sm"
-                onKeyDown={(e) => e.key === 'Enter' && saveApiKey(e.target.value)} />
-              <button onClick={(e) => saveApiKey(e.target.previousSibling.value)}
-                className="btn-primary px-6 py-3 rounded-lg text-sm font-medium">Save</button>
-            </div>
           </div>
         </div>
       )}

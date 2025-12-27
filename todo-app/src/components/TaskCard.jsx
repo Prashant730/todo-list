@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiCheck, FiEdit2, FiTrash2, FiCalendar, FiTag, FiChevronDown, FiChevronUp, FiZap } from 'react-icons/fi';
+import { FiCheck, FiEdit2, FiTrash2, FiCalendar, FiChevronDown, FiChevronUp, FiZap } from 'react-icons/fi';
 import { format, isPast, parseISO, differenceInDays } from 'date-fns';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,7 +8,7 @@ import AITaskBreakdown from './AITaskBreakdown';
 
 const priorityColors = { high: 'text-red-500', medium: 'text-yellow-500', low: 'text-green-500' };
 
-export default function TaskCard({ task, onEdit }) {
+export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
   const { dispatch } = useTodo();
   const [expanded, setExpanded] = useState(false);
   const [showAIBreakdown, setShowAIBreakdown] = useState(false);
@@ -16,7 +16,7 @@ export default function TaskCard({ task, onEdit }) {
 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const isOverdue = task.dueDate && isPast(parseISO(task.dueDate)) && !task.completed;
-  
+
   // Check if this task could benefit from AI breakdown
   const canBreakdown = task.dueDate && differenceInDays(parseISO(task.dueDate), new Date()) >= 3 && !task.completed;
 
@@ -28,9 +28,8 @@ export default function TaskCard({ task, onEdit }) {
           title: subtask.title,
           description: subtask.description,
           priority: subtask.priority,
-          category: task.category,
+          categories: task.categories || (task.category ? [task.category] : []),
           dueDate: day.date + 'T12:00',
-          tags: [...(task.tags || []), 'ai-generated', 'daily-breakdown'],
           parentTask: task.title,
           estimatedTime: subtask.estimatedTime
         };
@@ -40,64 +39,126 @@ export default function TaskCard({ task, onEdit }) {
     setShowAIBreakdown(false);
   };
 
+  const handleKeyDown = (e) => {
+    switch (e.key) {
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        dispatch({ type: 'TOGGLE_COMPLETE', payload: task.id });
+        break;
+      case 'e':
+      case 'E':
+        e.preventDefault();
+        onEdit(task);
+        break;
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault();
+        dispatch({ type: 'DELETE_TASK', payload: task.id });
+        break;
+      default:
+        if (onKeyNavigation) {
+          onKeyNavigation(e, focusKey);
+        }
+    }
+  };
+
   return (
     <>
-      <div ref={setNodeRef} style={style} {...attributes}
-        className={`task-card rounded-lg p-4 mb-3 animate-slide-in priority-${task.priority || 'low'} ${task.completed ? 'opacity-60' : ''} relative`}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        className={`task-card rounded-lg p-4 mb-3 animate-slide-in priority-${task.priority || 'low'} ${task.completed ? 'opacity-60' : ''} relative focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2`}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        role="listitem"
+        aria-label={`Task: ${task.title}${task.completed ? ' (completed)' : ''}${isOverdue ? ' (overdue)' : ''}`}
+        aria-describedby={`task-${task.id}-details`}
+      >
         <div className="flex items-start gap-3">
-          <button {...listeners} className="mt-1 cursor-grab active:cursor-grabbing text-[var(--text-secondary)] hover:text-[var(--text-primary)]">⋮⋮</button>
-          <button onClick={() => dispatch({ type: 'TOGGLE_COMPLETE', payload: task.id })}
-            className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${task.completed ? 'bg-[var(--success)] border-[var(--success)]' : 'border-[var(--border-color)] hover:border-[var(--accent)]'}`}>
+          <button
+            {...listeners}
+            className="mt-1 cursor-grab active:cursor-grabbing text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            aria-label="Drag to reorder task"
+            tabIndex={-1}
+          >
+            ⋮⋮
+          </button>
+          <button
+            onClick={() => dispatch({ type: 'TOGGLE_COMPLETE', payload: task.id })}
+            className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[var(--accent)] ${task.completed ? 'bg-[var(--success)] border-[var(--success)]' : 'border-[var(--border-color)] hover:border-[var(--accent)]'}`}
+            aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
+            aria-pressed={task.completed}
+          >
             {task.completed && <FiCheck size={12} className="text-white" />}
           </button>
           <div className="flex-1 min-w-0">
-            <h3 className={`font-medium ${task.completed ? 'line-through text-[var(--text-secondary)]' : ''}`}>{task.title}</h3>
-            {task.description && expanded && <p className="text-sm text-[var(--text-secondary)] mt-1">{task.description}</p>}
-            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+            <h3 className={`font-medium ${task.completed ? 'line-through text-[var(--text-secondary)]' : ''}`}>
+              {task.title}
+            </h3>
+            {task.description && expanded && (
+              <p className="text-sm text-[var(--text-secondary)] mt-1" id={`task-${task.id}-description`}>
+                {task.description}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs" id={`task-${task.id}-details`}>
               {task.dueDate && (
                 <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500' : 'text-[var(--text-secondary)]'}`}>
-                  <FiCalendar size={12} /> {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                  <FiCalendar size={12} aria-hidden="true" />
+                  <time dateTime={task.dueDate}>
+                    {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                  </time>
+                  {isOverdue && <span className="sr-only">(overdue)</span>}
                 </span>
               )}
-              {task.category && <span className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded-full">{task.category}</span>}
-              {task.tags?.map(tag => <span key={tag} className="flex items-center gap-1 text-[var(--accent)]"><FiTag size={10} />{tag}</span>)}
-              {task.priority && <span className={`font-medium ${priorityColors[task.priority]}`}>{task.priority}</span>}
+              {/* Display multiple categories */}
+              {(task.categories || (task.category ? [task.category] : [])).map(category => (
+                <span key={category} className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded-full">
+                  {category}
+                </span>
+              ))}
+              {task.priority && (
+                <span className={`font-medium ${priorityColors[task.priority]}`}>
+                  {task.priority} priority
+                </span>
+              )}
             </div>
-            {task.subtasks?.length > 0 && (
-              <div className="mt-2">
-                <div className="text-xs text-[var(--text-secondary)]">
-                  {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length} subtasks
-                </div>
-                {expanded && (
-                  <div className="mt-1 space-y-1">
-                    {task.subtasks.map((sub, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={sub.completed} onChange={() => {
-                          const newSubtasks = [...task.subtasks];
-                          newSubtasks[i] = { ...sub, completed: !sub.completed };
-                          dispatch({ type: 'UPDATE_TASK', payload: { id: task.id, subtasks: newSubtasks } });
-                        }} className="rounded" />
-                        <span className={sub.completed ? 'line-through text-[var(--text-secondary)]' : ''}>{sub.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
-          <div className="flex items-center gap-1">
-            {(task.description || task.subtasks?.length > 0) && (
-              <button onClick={() => setExpanded(!expanded)} className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition">
+          <div className="flex items-center gap-1" role="toolbar" aria-label="Task actions">
+            {task.description && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                aria-label={expanded ? 'Collapse description' : 'Expand description'}
+                aria-expanded={expanded}
+              >
                 {expanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
               </button>
             )}
             {canBreakdown && (
-              <button onClick={() => setShowAIBreakdown(true)} className="p-1.5 rounded hover:bg-purple-500/10 text-purple-500 transition" title="AI Breakdown">
+              <button
+                onClick={() => setShowAIBreakdown(true)}
+                className="p-1.5 rounded hover:bg-purple-500/10 text-purple-500 transition focus:outline-none focus:ring-2 focus:ring-purple-500"
+                aria-label="Generate AI task breakdown"
+              >
                 <FiZap size={16} />
               </button>
             )}
-            <button onClick={() => onEdit(task)} className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition"><FiEdit2 size={16} /></button>
-            <button onClick={() => dispatch({ type: 'DELETE_TASK', payload: task.id })} className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition"><FiTrash2 size={16} /></button>
+            <button
+              onClick={() => onEdit(task)}
+              className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] transition focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+              aria-label="Edit task"
+            >
+              <FiEdit2 size={16} />
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'DELETE_TASK', payload: task.id })}
+              className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition focus:outline-none focus:ring-2 focus:ring-red-500"
+              aria-label="Delete task"
+            >
+              <FiTrash2 size={16} />
+            </button>
           </div>
         </div>
       </div>

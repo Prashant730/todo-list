@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
+import { FiRotateCcw } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
 import { useTaskStats } from '../hooks/useFilteredTasks';
 import { format, subDays, parseISO, isWithinInterval } from 'date-fns';
 
 export default function Analytics() {
-  const { state } = useTodo();
+  const { state, dispatch } = useTodo();
   const stats = useTaskStats(state.tasks);
 
   const weeklyData = useMemo(() => {
@@ -21,9 +22,22 @@ export default function Analytics() {
 
   const maxCompleted = Math.max(...weeklyData.map(d => d.completed), 1);
 
+  const resetProductivityData = () => {
+    if (confirm('Reset all productivity data? This will mark all completed tasks as incomplete and clear your analytics history. This cannot be undone.')) {
+      dispatch({ type: 'RESET_PRODUCTIVITY' });
+    }
+  };
+
   return (
     <div className="bg-[var(--bg-secondary)] rounded-xl p-4 mb-4">
-      <h3 className="font-semibold mb-4">Weekly Activity</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">Weekly Activity</h3>
+        <button onClick={resetProductivityData}
+          className="px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs bg-red-500/10 text-red-500 hover:bg-red-500/20 transition border border-red-500/20">
+          <FiRotateCcw size={14} />
+          Reset Data
+        </button>
+      </div>
       <div className="flex items-end justify-between h-32 gap-2">
         {weeklyData.map(({ day, completed }) => (
           <div key={day} className="flex-1 flex flex-col items-center">

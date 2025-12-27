@@ -209,10 +209,40 @@ Return ONLY JSON: {"dailyTasks": [{"date": "YYYY-MM-DD", "tasks": [{"title": "St
   }
 
   async generateAnalytics(data) {
-    const prompt = `Analyze this productivity data:
+    const prompt = `You are an expert productivity analyst. Analyze this comprehensive task management data and provide deep insights:
+
+PRODUCTIVITY DATA:
 ${JSON.stringify(data, null, 2)}
 
-Return ONLY JSON: {"trends": ["trend1"], "recommendations": ["rec1"], "insights": ["insight1"]}`
+Generate a comprehensive analysis report focusing on these specific areas:
+
+1. TASK STATUS DISTRIBUTION - Analyze completion patterns and task lifecycle
+2. PRIORITY DISTRIBUTION - Examine how priorities are managed and completed
+3. DAILY ACTIVITY PATTERN - Identify peak productivity hours and daily trends
+4. CATEGORY PERFORMANCE - Evaluate performance across different task categories
+5. 30-DAY ACTIVITY STREAK - Assess consistency and momentum patterns
+6. WEEKLY COMPLETION PATTERNS - Identify weekly productivity cycles
+7. PRIORITY ANALYSIS: TOTAL VS COMPLETED - Deep dive into priority management effectiveness
+
+Return ONLY JSON with this exact structure:
+{
+  "productivityProfile": "2-3 sentence summary of user's productivity style",
+  "strengths": ["strength1", "strength2", "strength3"],
+  "weaknesses": ["weakness1", "weakness2", "weakness3"],
+  "behavioralPatterns": ["pattern1", "pattern2", "pattern3"],
+  "actionableRecommendations": ["rec1", "rec2", "rec3", "rec4", "rec5"],
+  "predictiveInsights": ["insight1", "insight2", "insight3"],
+  "gamificationSuggestions": ["suggestion1", "suggestion2", "suggestion3"],
+  "keyMetrics": {
+    "taskStatusAnalysis": "Analysis of completion vs active vs overdue tasks",
+    "priorityEffectiveness": "How well priorities are being managed",
+    "dailyProductivityPeak": "Best time of day for task completion",
+    "categoryInsights": "Which categories perform best/worst",
+    "streakAnalysis": "Consistency patterns and momentum",
+    "weeklyTrends": "Weekly productivity patterns",
+    "priorityCompletionGap": "Gap between high/medium/low priority completion rates"
+  }
+}`
 
     const response = await this.generateContent(prompt)
     try {
@@ -220,15 +250,78 @@ Return ONLY JSON: {"trends": ["trend1"], "recommendations": ["rec1"], "insights"
       return jsonMatch
         ? JSON.parse(jsonMatch[0])
         : {
-            trends: ['Data analyzed'],
-            recommendations: ['Keep tracking'],
-            insights: ['Good progress'],
+            productivityProfile: 'Analysis completed with available data.',
+            strengths: ['Task tracking', 'Data collection', 'Consistent usage'],
+            weaknesses: ['Need more data', 'Pattern analysis pending'],
+            behavioralPatterns: [
+              'Regular task creation',
+              'Varied completion times',
+            ],
+            actionableRecommendations: [
+              'Continue tracking tasks consistently',
+              'Focus on completing high-priority items first',
+              'Establish regular review sessions',
+              'Set specific time blocks for task completion',
+              'Use categories to organize work better',
+            ],
+            predictiveInsights: [
+              'Productivity patterns will become clearer with more data',
+              'Consistency in task completion leads to better outcomes',
+              'Priority management is key to productivity improvement',
+            ],
+            gamificationSuggestions: [
+              'Set daily completion goals',
+              'Create weekly challenges',
+              'Track longest completion streaks',
+            ],
+            keyMetrics: {
+              taskStatusAnalysis:
+                'Current task distribution shows room for improvement',
+              priorityEffectiveness: 'Priority management needs attention',
+              dailyProductivityPeak: 'Peak hours not yet identified',
+              categoryInsights: 'Category performance varies significantly',
+              streakAnalysis: 'Building consistency is important',
+              weeklyTrends: 'Weekly patterns emerging',
+              priorityCompletionGap: 'Priority completion rates need balancing',
+            },
           }
-    } catch {
+    } catch (error) {
+      console.error('Analytics parsing error:', error)
       return {
-        trends: ['Data analyzed'],
-        recommendations: ['Keep tracking'],
-        insights: ['Good progress'],
+        productivityProfile: 'Analysis completed with available data.',
+        strengths: ['Task tracking', 'Data collection', 'Consistent usage'],
+        weaknesses: ['Need more data', 'Pattern analysis pending'],
+        behavioralPatterns: [
+          'Regular task creation',
+          'Varied completion times',
+        ],
+        actionableRecommendations: [
+          'Continue tracking tasks consistently',
+          'Focus on completing high-priority items first',
+          'Establish regular review sessions',
+          'Set specific time blocks for task completion',
+          'Use categories to organize work better',
+        ],
+        predictiveInsights: [
+          'Productivity patterns will become clearer with more data',
+          'Consistency in task completion leads to better outcomes',
+          'Priority management is key to productivity improvement',
+        ],
+        gamificationSuggestions: [
+          'Set daily completion goals',
+          'Create weekly challenges',
+          'Track longest completion streaks',
+        ],
+        keyMetrics: {
+          taskStatusAnalysis:
+            'Current task distribution shows room for improvement',
+          priorityEffectiveness: 'Priority management needs attention',
+          dailyProductivityPeak: 'Peak hours not yet identified',
+          categoryInsights: 'Category performance varies significantly',
+          streakAnalysis: 'Building consistency is important',
+          weeklyTrends: 'Weekly patterns emerging',
+          priorityCompletionGap: 'Priority completion rates need balancing',
+        },
       }
     }
   }

@@ -9,10 +9,11 @@ export default function ExportImport() {
 
   const exportCSV = () => {
     try {
-      const headers = ['Title', 'Description', 'Priority', 'Category', 'Due Date', 'Status', 'Tags'];
+      const headers = ['Title', 'Description', 'Priority', 'Categories', 'Due Date', 'Status'];
       const rows = state.tasks.map(t => [
-        t.title, t.description || '', t.priority || '', t.category || '',
-        t.dueDate || '', t.completed ? 'Completed' : 'Active', (t.tags || []).join(';')
+        t.title, t.description || '', t.priority || '',
+        (t.categories || []).join(';'), t.dueDate || '',
+        t.completed ? 'Completed' : 'Active'
       ]);
       const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
@@ -50,7 +51,7 @@ export default function ExportImport() {
   const handleImport = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = (event) => {
       try {

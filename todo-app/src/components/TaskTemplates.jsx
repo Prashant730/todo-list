@@ -65,8 +65,7 @@ export default function TaskTemplates({ onClose, onCreateTasks }) {
     const tasks = template.tasks.map((task, index) => ({
       ...task,
       description: `From template: ${template.name}`,
-      category: template.category,
-      tags: [...template.tags, 'from-template'],
+      categories: template.category ? [template.category] : [],
       dueDate: new Date(baseDueDate.getTime() + (index * 60 * 60 * 1000)).toISOString().slice(0, 16) // 1 hour apart
     }));
 
@@ -160,11 +159,6 @@ export default function TaskTemplates({ onClose, onCreateTasks }) {
                   <span className="px-2 py-1 bg-[var(--accent)]/20 text-[var(--accent)] rounded-full">
                     {template.category}
                   </span>
-                  {template.tags.slice(0, 2).map(tag => (
-                    <span key={tag} className="px-2 py-1 bg-[var(--bg-tertiary)] rounded-full">
-                      {tag}
-                    </span>
-                  ))}
                 </div>
 
                 <button onClick={() => useTemplate(template)}
@@ -214,7 +208,7 @@ function TemplateEditor({ template, onSave, onCancel }) {
         <div className="p-4 border-b border-[var(--border-color)]">
           <h3 className="text-lg font-semibold">Edit Template</h3>
         </div>
-        
+
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -255,7 +249,7 @@ function TemplateEditor({ template, onSave, onCancel }) {
                 <FiPlus size={14} className="inline mr-1" /> Add Task
               </button>
             </div>
-            
+
             <div className="space-y-2">
               {form.tasks.map((task, i) => (
                 <div key={i} className="flex gap-2 p-3 bg-[var(--bg-secondary)] rounded-lg">

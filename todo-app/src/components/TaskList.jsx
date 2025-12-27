@@ -2,16 +2,20 @@ import { useState } from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { arrayMove } from '@dnd-kit/sortable';
-import { FiInbox, FiCheck, FiTrash2, FiEdit3, FiMoreHorizontal } from 'react-icons/fi';
+import { FiInbox, FiCheck, FiTrash2, FiMoreHorizontal } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
 import { useFilteredTasks } from '../hooks/useFilteredTasks';
+import { useFocusManager } from '../hooks/useFocusManager';
 import TaskCard from './TaskCard';
+import VirtualTaskList from './VirtualTaskList';
+import { TaskListSkeleton } from './LoadingStates';
 
-export default function TaskList({ onEditTask }) {
+export default function TaskList({ onEditTask, loading = false }) {
   const { state, dispatch } = useTodo();
   const filteredTasks = useFilteredTasks(state.tasks, state.filter);
   const [selectedTasks, setSelectedTasks] = useState(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const focusManager = useFocusManager();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -76,13 +80,18 @@ export default function TaskList({ onEditTask }) {
     clearSelection();
   };
 
+  // Show loading skeleton while tasks are loading
+  if (loading) {
+    return <TaskListSkeleton count={5} />;
+  }
+
   if (filteredTasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-[var(--text-secondary)]">
         <FiInbox size={64} className="mb-6 opacity-30" />
         <h3 className="text-xl font-medium mb-2">No tasks found</h3>
         <p className="text-sm mb-6">Create a new task to get started with your productivity journey</p>
-        <button onClick={() => window.dispatchEvent(new CustomEvent('openTaskModal'))} 
+        <button onClick={() => window.dispatchEvent(new CustomEvent('openNewTaskMenu'))}
           className="btn-primary px-6 py-3 rounded-xl flex items-center gap-2">
           <FiInbox size={18} /> Create Your First Task
         </button>
@@ -151,21 +160,40 @@ export default function TaskList({ onEditTask }) {
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={filteredTasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-          {filteredTasks.map(task => (
-            <div key={task.id} className="relative mb-3">
-              {filteredTasks.length > 1 && (
-                <input
-                  type="checkbox"
-                  checked={selectedTasks.has(task.id)}
-                  onChange={() => toggleTaskSelection(task.id)}
-                  className="absolute top-4 left-4 z-20 rounded"
-                />
-              )}
-              <div className={selectedTasks.has(task.id) ? 'ml-8' : ''}>
-                <TaskCard task={task} onEdit={onEditTask} />
-              </div>
+          {/* Use virtual scrolling for large lists */}
+          {filteredTasks.length > 50 ? (
+            <VirtualTaskList
+              tasks={filteredTasks}
+              onEdit={onEditTask}
+              onToggle={(id) => dispatch({ type: 'TOGGLE_COMPLETE', payload: id })}
+              onDelete={(id) => dispatch({ type: 'DELETE_TASK', payload: id })}
+            />
+          ) : (
+            <div role="list" aria-label="Task list">
+              {filteredTasks.map((task, index) => (
+                <div key={task.id} className="relative mb-3">
+                  {filteredTasks.length > 1 && (
+                    <input
+                      type="checkbox"
+                      checked={selectedTasks.has(task.id)}
+                      onChange={() => toggleTaskSelection(task.id)}
+                      className="absolute top-4 left-4 z-20 rounded"
+                      aria-label={`Select task: ${task.title}`}
+                    />
+                  )}
+                  <div className={selectedTasks.has(task.id) ? 'ml-8' : ''}>
+                    <TaskCard
+                      task={task}
+                      onEdit={onEditTask}
+                      focusKey={`task-${index}`}
+                      onKeyNavigation={focusManager.handleKeyNavigation}
+                      ref={(el) => focusManager.registerElement(`task-${index}`, el)}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </SortableContext>
       </DndContext>
     </div>

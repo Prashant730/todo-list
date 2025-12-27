@@ -5,6 +5,15 @@ export default function FilterBar() {
 
   return (
     <div className="flex flex-wrap gap-3">
+      <select value={state.filter.status} onChange={e => dispatch({ type: 'SET_FILTER', payload: { status: e.target.value } })}
+        className="input-field px-4 py-3 rounded-xl text-sm min-w-[140px] md:hidden">
+        <option value="all">All Tasks</option>
+        <option value="today">📅 Today</option>
+        <option value="week">📆 This Week</option>
+        <option value="overdue">⚠️ Overdue</option>
+        <option value="active">🔄 Active</option>
+        <option value="completed">✅ Completed</option>
+      </select>
       <select value={state.filter.priority} onChange={e => dispatch({ type: 'SET_FILTER', payload: { priority: e.target.value } })}
         className="input-field px-4 py-3 rounded-xl text-sm min-w-[140px]">
         <option value="all">All Priorities</option>

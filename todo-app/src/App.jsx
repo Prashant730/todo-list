@@ -14,15 +14,26 @@ import AIInsights from './components/AIInsights';
 import TaskTemplates from './components/TaskTemplates';
 import ErrorBoundary from './components/ErrorBoundary';
 import TestRunner from './components/TestRunner';
+import PWAInstallBanner, { OfflineIndicator, OnlineIndicator } from './components/PWAInstallBanner';
+import { usePWA } from './hooks/usePWA';
 
 function AppContent() {
   const { state, dispatch } = useTodo();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const { requestNotificationPermission } = usePWA();
 
-  const openModal = useCallback((task = null) => {
-    setEditingTask(task);
+  const openModal = useCallback((taskOrPreset = null) => {
+    // If it's a preset with scheduleType, create a new task template
+    if (taskOrPreset && taskOrPreset.scheduleType) {
+      setEditingTask({
+        scheduleType: taskOrPreset.scheduleType,
+        dueDate: taskOrPreset.dueDate || ''
+      });
+    } else {
+      setEditingTask(taskOrPreset);
+    }
     setModalOpen(true);
   }, []);
 
@@ -34,6 +45,11 @@ function AppContent() {
   const createTasksFromTemplate = useCallback((tasks) => {
     dispatch({ type: 'ADD_MULTIPLE_TASKS', payload: tasks });
   }, [dispatch]);
+
+  // Request notification permission on first load
+  useEffect(() => {
+    requestNotificationPermission();
+  }, [requestNotificationPermission]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -70,8 +86,8 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      <Header 
-        onAddTask={() => openModal()} 
+      <Header
+        onAddTask={openModal}
         onShowTemplates={() => setShowTemplates(true)}
       />
       <div className="flex">
@@ -80,14 +96,19 @@ function AppContent() {
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">
-                {state.filter.status === 'all' ? 'All Tasks' : state.filter.status.charAt(0).toUpperCase() + state.filter.status.slice(1)}
+                {state.filter.status === 'all' && 'All Tasks'}
+                {state.filter.status === 'today' && '📅 Today\'s Tasks'}
+                {state.filter.status === 'week' && '📆 This Week'}
+                {state.filter.status === 'overdue' && '⚠️ Overdue'}
+                {state.filter.status === 'completed' && '✅ Completed'}
+                {state.filter.status === 'active' && '🔄 Active'}
                 {state.filter.category !== 'all' && (
                   <span className="text-lg font-normal text-[var(--text-secondary)]"> • {state.filter.category}</span>
                 )}
               </h2>
               <ExportImport />
             </div>
-            
+
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
@@ -97,7 +118,7 @@ function AppContent() {
                   <FilterBar />
                 </div>
               </div>
-              
+
               <div className="bg-[var(--bg-secondary)] rounded-xl p-6 min-h-[400px]">
                 {state.viewMode === 'calendar' ? (
                   <CalendarView onEditTask={openModal} />
@@ -105,24 +126,36 @@ function AppContent() {
                   <TaskList onEditTask={openModal} />
                 )}
               </div>
-              
+
               <AIInsights />
-              
+
               <AIAnalyticsDashboard />
             </div>
           </div>
         </main>
       </div>
-      
-      {modalOpen && <TaskModal task={editingTask} onClose={closeModal} />}
+
+      {modalOpen && (
+        <TaskModal
+          task={editingTask}
+          onClose={closeModal}
+        />
+      )}
       {showTemplates && (
-        <TaskTemplates 
+        <TaskTemplates
           onClose={() => setShowTemplates(false)}
           onCreateTasks={createTasksFromTemplate}
         />
       )}
+
       <AIAssistant />
+
       <TestRunner />
+
+      {/* PWA Components */}
+      <PWAInstallBanner />
+      <OfflineIndicator />
+      <OnlineIndicator />
     </div>
   );
 }

@@ -1,12 +1,20 @@
-import { useState } from 'react';
-import { FiPlus, FiZap, FiCalendar, FiClock, FiTarget, FiStar } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiPlus, FiZap, FiCalendar, FiClock, FiTarget, FiStar, FiSun, FiX } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
-import { format, addDays, addHours } from 'date-fns';
+import { format, addDays, addHours, endOfWeek } from 'date-fns';
 
 export default function QuickActions({ onAddTask }) {
   const { dispatch } = useTodo();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showScheduleSelect, setShowScheduleSelect] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
+
+  // Listen for openNewTaskMenu event from TaskList empty state
+  useEffect(() => {
+    const handleOpenNewTaskMenu = () => setShowScheduleSelect(true);
+    window.addEventListener('openNewTaskMenu', handleOpenNewTaskMenu);
+    return () => window.removeEventListener('openNewTaskMenu', handleOpenNewTaskMenu);
+  }, []);
 
   const quickTemplates = [
     {
@@ -37,7 +45,7 @@ export default function QuickActions({ onAddTask }) {
 
   const createQuickTask = (priority = 'medium', dueDate = null, category = '') => {
     if (!quickTitle.trim()) return;
-    
+
     dispatch({
       type: 'ADD_TASK',
       payload: {
@@ -48,7 +56,7 @@ export default function QuickActions({ onAddTask }) {
         tags: ['quick-add']
       }
     });
-    
+
     setQuickTitle('');
     setShowQuickAdd(false);
   };
@@ -58,6 +66,25 @@ export default function QuickActions({ onAddTask }) {
     createQuickTask();
   };
 
+  // Handle schedule type selection for New Task button
+  const handleScheduleSelect = (type) => {
+    setShowScheduleSelect(false);
+
+    // Calculate due date based on selection
+    const now = new Date();
+    let dueDate = '';
+
+    if (type === 'daily') {
+      dueDate = format(now, "yyyy-MM-dd") + 'T23:59';
+    } else if (type === 'weekly') {
+      const weekEnd = endOfWeek(now);
+      dueDate = format(weekEnd, "yyyy-MM-dd") + 'T23:59';
+    }
+
+    // Open task modal with pre-filled due date
+    onAddTask({ scheduleType: type, dueDate });
+  };
+
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
@@ -65,11 +92,70 @@ export default function QuickActions({ onAddTask }) {
           className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-secondary)] rounded-lg hover:bg-[var(--bg-tertiary)] transition text-sm">
           <FiZap size={16} /> Quick Add
         </button>
-        <button onClick={onAddTask}
+        <button onClick={() => setShowScheduleSelect(true)}
           className="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
           <FiPlus size={16} /> New Task
         </button>
       </div>
+
+      {/* Schedule Type Selection Popup */}
+      {showScheduleSelect && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowScheduleSelect(false)} />
+          <div className="absolute top-12 right-0 w-72 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-4 animate-slide-in">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-sm">Add task to:</h3>
+              <button onClick={() => setShowScheduleSelect(false)} className="p-1 hover:bg-[var(--bg-secondary)] rounded">
+                <FiX size={16} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Daily Option */}
+              <button
+                onClick={() => handleScheduleSelect('daily')}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-[var(--border-color)] hover:border-orange-400 hover:bg-orange-500/5 transition group"
+              >
+                <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center group-hover:bg-orange-500/30 transition">
+                  <FiSun size={24} className="text-orange-500" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">Daily Task</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Due today at 11:59 PM</div>
+                </div>
+              </button>
+
+              {/* Weekly Option */}
+              <button
+                onClick={() => handleScheduleSelect('weekly')}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-[var(--border-color)] hover:border-blue-400 hover:bg-blue-500/5 transition group"
+              >
+                <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center group-hover:bg-blue-500/30 transition">
+                  <FiCalendar size={24} className="text-blue-500" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">Weekly Task</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Due end of this week</div>
+                </div>
+              </button>
+
+              {/* Custom Option */}
+              <button
+                onClick={() => handleScheduleSelect('custom')}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-[var(--border-color)] hover:border-purple-400 hover:bg-purple-500/5 transition group"
+              >
+                <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center group-hover:bg-purple-500/30 transition">
+                  <FiPlus size={24} className="text-purple-500" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">Custom Date</div>
+                  <div className="text-xs text-[var(--text-secondary)]">Choose your own due date</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {showQuickAdd && (
         <div className="absolute top-12 left-0 w-80 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl shadow-2xl z-50 p-4 animate-slide-in">
@@ -82,7 +168,7 @@ export default function QuickActions({ onAddTask }) {
               className="input-field w-full px-3 py-2 rounded-lg text-sm"
               autoFocus
             />
-            
+
             <div className="grid grid-cols-2 gap-2">
               {quickTemplates.map((template, i) => (
                 <button
@@ -97,7 +183,7 @@ export default function QuickActions({ onAddTask }) {
                 </button>
               ))}
             </div>
-            
+
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => setShowQuickAdd(false)}
                 className="flex-1 px-3 py-2 border border-[var(--border-color)] rounded-lg text-sm hover:bg-[var(--bg-secondary)] transition">
