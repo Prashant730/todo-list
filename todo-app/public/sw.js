@@ -1,6 +1,6 @@
-const CACHE_NAME = 'study-planner-v2'
-const STATIC_CACHE = 'study-planner-static-v2'
-const DYNAMIC_CACHE = 'study-planner-dynamic-v2'
+const CACHE_NAME = 'study-planner-v3'
+const STATIC_CACHE = 'study-planner-static-v3'
+const DYNAMIC_CACHE = 'study-planner-dynamic-v3'
 
 // Check if we're in development mode
 const isDev =
