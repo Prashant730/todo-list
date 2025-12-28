@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiPlay, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
 import config from '../config/env';

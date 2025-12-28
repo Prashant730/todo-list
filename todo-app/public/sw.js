@@ -1,19 +1,23 @@
-const CACHE_NAME = 'study-planner-v1'
-const STATIC_CACHE = 'study-planner-static-v1'
-const DYNAMIC_CACHE = 'study-planner-dynamic-v1'
+const CACHE_NAME = 'study-planner-v2'
+const STATIC_CACHE = 'study-planner-static-v2'
+const DYNAMIC_CACHE = 'study-planner-dynamic-v2'
 
-// Files to cache immediately
-const STATIC_FILES = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-]
+// Check if we're in development mode
+const isDev =
+  location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+
+// Files to cache immediately (only in production)
+const STATIC_FILES = ['/', '/index.html', '/manifest.json']
 
 // Install event - cache static files
 self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...')
+
+  // In development, skip caching and activate immediately
+  if (isDev) {
+    console.log('Service Worker: Development mode - skipping cache')
+    return self.skipWaiting()
+  }
 
   event.waitUntil(
     caches
@@ -42,8 +46,12 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('Service Worker: Deleting old cache', cacheName)
+            // In development, delete ALL caches
+            if (
+              isDev ||
+              (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE)
+            ) {
+              console.log('Service Worker: Deleting cache', cacheName)
               return caches.delete(cacheName)
             }
           })
@@ -66,8 +74,26 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Skip external API calls (let them fail gracefully)
+  // Skip external API calls
   if (url.origin !== location.origin) {
+    return
+  }
+
+  // In development, ALWAYS go to network (no caching)
+  if (isDev) {
+    return
+  }
+
+  // Skip caching for Vite/development files
+  if (
+    url.pathname.includes('node_modules') ||
+    url.pathname.includes('.vite') ||
+    url.pathname.includes('@vite') ||
+    url.pathname.includes('@react-refresh') ||
+    url.pathname.endsWith('.jsx') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts')
+  ) {
     return
   }
 

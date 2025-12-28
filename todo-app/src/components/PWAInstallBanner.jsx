@@ -3,7 +3,7 @@ import { FiDownload, FiX, FiSmartphone, FiWifi, FiWifiOff } from 'react-icons/fi
 import { usePWA } from '../hooks/usePWA';
 
 export default function PWAInstallBanner() {
-  const { isInstallable, isInstalled, isOnline, installApp } = usePWA();
+  const { isInstallable, isInstalled, isOnline: _isOnline, installApp } = usePWA();
   const [dismissed, setDismissed] = useState(false);
 
   if (isInstalled || dismissed || !isInstallable) {

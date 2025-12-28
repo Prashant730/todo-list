@@ -24,11 +24,15 @@ export function useFilteredTasks(tasks, filter) {
       if (filter.priority !== 'all' && task.priority !== filter.priority)
         return false
 
-      // Support both old single category and new multiple categories
+      // Support both old single category and new multiple categories (including objects from API)
       if (filter.category !== 'all') {
         const taskCategories =
           task.categories || (task.category ? [task.category] : [])
-        if (!taskCategories.includes(filter.category)) return false
+        // Handle both string categories and object categories
+        const categoryNames = taskCategories.map((c) =>
+          typeof c === 'string' ? c : c?.name || ''
+        )
+        if (!categoryNames.includes(filter.category)) return false
       }
 
       if (

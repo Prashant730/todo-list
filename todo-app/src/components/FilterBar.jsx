@@ -1,5 +1,9 @@
 import { useTodo } from '../context/TodoContext';
 
+// Helper to get category name from string or object
+const getCategoryName = (cat) => typeof cat === 'string' ? cat : cat?.name || '';
+const getCategoryId = (cat) => typeof cat === 'string' ? cat : cat?._id || cat?.name || '';
+
 export default function FilterBar() {
   const { state, dispatch } = useTodo();
 
@@ -24,7 +28,11 @@ export default function FilterBar() {
       <select value={state.filter.category} onChange={e => dispatch({ type: 'SET_FILTER', payload: { category: e.target.value } })}
         className="input-field px-4 py-3 rounded-xl text-sm min-w-[140px] md:hidden">
         <option value="all">All Categories</option>
-        {state.categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+        {state.categories.map(cat => {
+          const name = getCategoryName(cat);
+          const id = getCategoryId(cat);
+          return <option key={id} value={name}>{name}</option>;
+        })}
       </select>
     </div>
   );

@@ -3,8 +3,7 @@ import { FiMessageSquare, FiX, FiSend, FiZap, FiTrendingUp, FiAlertCircle, FiTar
 import { aiService } from '../services/aiService.js';
 import { useTodo } from '../context/TodoContext';
 import { useTaskStats } from '../hooks/useFilteredTasks';
-import { format, parseISO, differenceInDays, isPast } from 'date-fns';
-import { handleApiError, showErrorNotification } from '../utils/errorHandler';
+import { format, parseISO, isPast } from 'date-fns';
 
 const quickPrompts = [
   { icon: FiTrendingUp, label: 'Study schedule help', prompt: 'Help me create an effective study schedule for my assignments' },

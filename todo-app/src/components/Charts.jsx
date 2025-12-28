@@ -33,7 +33,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 // Pie Chart Component
-export function TaskPieChart({ data, title, dataKey = "value", nameKey = "name" }) {
+export function TaskPieChart({ data, title, dataKey = "value", nameKey: _nameKey = "name" }) {
   return (
     <div className="bg-[var(--bg-primary)] p-4 rounded-lg">
       <h4 className="font-medium mb-3 text-center">{title}</h4>

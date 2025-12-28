@@ -27,7 +27,7 @@ export const validateTask = (task) => {
     if (task.categories.length > 5) {
       errors.categories = 'Maximum 5 categories allowed'
     }
-    task.categories.forEach((category, index) => {
+    task.categories.forEach((category) => {
       if (typeof category !== 'string' || category.length > 50) {
         errors.categories =
           'Each category must be a string with max 50 characters'

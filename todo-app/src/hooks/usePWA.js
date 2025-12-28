@@ -51,16 +51,38 @@ export function usePWA() {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
-    // Register service worker
+    // Register service worker only in production
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('PWA: Service Worker registered', registration)
+      const isDev =
+        window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1'
+
+      if (isDev) {
+        // In development, unregister any existing service workers to prevent caching issues
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => {
+            registration.unregister()
+            console.log('PWA: Service Worker unregistered (development mode)')
+          })
         })
-        .catch((error) => {
-          console.error('PWA: Service Worker registration failed', error)
+        // Clear all caches in development
+        caches.keys().then((names) => {
+          names.forEach((name) => {
+            caches.delete(name)
+            console.log('PWA: Cache cleared (development mode):', name)
+          })
         })
+      } else {
+        // In production, register the service worker
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('PWA: Service Worker registered', registration)
+          })
+          .catch((error) => {
+            console.error('PWA: Service Worker registration failed', error)
+          })
+      }
     }
 
     // Cleanup

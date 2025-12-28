@@ -11,7 +11,12 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:verbose": "vitest run --reporter=verbose",
+    "test:debug": "vitest run --reporter=verbose --no-coverage",
+    "test:watch": "vitest --reporter=verbose",
+    "test:failed": "vitest run --reporter=verbose --changed",
+    "test:help": "node scripts/test-help.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

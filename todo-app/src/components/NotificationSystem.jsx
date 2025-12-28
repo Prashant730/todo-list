@@ -81,7 +81,7 @@ export default function NotificationSystem() {
               priority: 'high'
             });
           }
-        } catch (error) {
+        } catch (_error) {
           console.warn('Invalid date format for task:', task.title, task.dueDate);
         }
       });

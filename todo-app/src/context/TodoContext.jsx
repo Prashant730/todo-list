@@ -1,142 +1,274 @@
-import { createContext, useContext, useReducer, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import api from '../services/api';
+import { useAuth } from './AuthContext';
 
-const TodoContext = createContext();
-
-const STORAGE_KEY = 'advanced-todo-app';
+const TodoContext = createContext(null);
 
 const initialState = {
   tasks: [],
-  categories: ['📚 Assignments', '📖 Study', '🧪 Exams', '📝 Projects', '🎯 Personal', '💼 Career', '🏃 Health', '🛒 Shopping'],
+  categories: [],
   filter: { status: 'all', priority: 'all', category: 'all', search: '' },
   viewMode: 'list',
   theme: 'light',
-  history: [],
-  historyIndex: -1,
+  loading: false,
+  error: null,
+  synced: false
 };
 
 function todoReducer(state, action) {
-  let newState;
   switch (action.type) {
-    case 'LOAD_STATE':
-      // Migrate old single category to categories array for backward compatibility
-      const migratedPayload = {
-        ...action.payload,
-        tasks: action.payload.tasks?.map(task => ({
-          ...task,
-          categories: task.categories || (task.category ? [task.category] : [])
-        })) || []
-      };
-      return { ...state, ...migratedPayload };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+
+    case 'CLEAR_ERROR':
+      return { ...state, error: null };
+
+    case 'LOAD_TASKS':
+      return { ...state, tasks: action.payload, loading: false, synced: true };
+
+    case 'LOAD_CATEGORIES':
+      return { ...state, categories: action.payload };
+
     case 'ADD_TASK':
-      newState = { ...state, tasks: [...state.tasks, { ...action.payload, id: uuidv4(), createdAt: new Date().toISOString(), completedAt: null }] };
-      break;
+      return { ...state, tasks: [...state.tasks, action.payload] };
+
     case 'ADD_MULTIPLE_TASKS':
-      const newTasks = action.payload.map(task => ({ ...task, id: uuidv4(), createdAt: new Date().toISOString(), completedAt: null }));
-      newState = { ...state, tasks: [...state.tasks, ...newTasks] };
-      break;
+      return { ...state, tasks: [...state.tasks, ...action.payload] };
+
     case 'UPDATE_TASK':
-      newState = { ...state, tasks: state.tasks.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t) };
-      break;
-    case 'DELETE_TASK':
-      newState = { ...state, tasks: state.tasks.filter(t => t.id !== action.payload) };
-      break;
-    case 'TOGGLE_COMPLETE':
-      const task = state.tasks.find(t => t.id === action.payload);
-      const updatedTask = {
-        ...task,
-        completed: !task.completed,
-        completedAt: !task.completed ? new Date().toISOString() : null
+      return {
+        ...state,
+        tasks: state.tasks.map(t => t._id === action.payload._id ? action.payload : t)
       };
 
-      newState = {
+    case 'DELETE_TASK':
+      return { ...state, tasks: state.tasks.filter(t => t._id !== action.payload) };
+
+    case 'TOGGLE_COMPLETE':
+      return {
         ...state,
-        tasks: state.tasks.map(t => t.id === action.payload ? updatedTask : t)
+        tasks: state.tasks.map(t => t._id === action.payload._id ? action.payload : t)
       };
-      break;
+
     case 'REORDER_TASKS':
-      newState = { ...state, tasks: action.payload };
-      break;
+      return { ...state, tasks: action.payload };
+
     case 'SET_FILTER':
       return { ...state, filter: { ...state.filter, ...action.payload } };
+
     case 'SET_VIEW_MODE':
       return { ...state, viewMode: action.payload };
+
     case 'TOGGLE_THEME':
       return { ...state, theme: state.theme === 'light' ? 'dark' : 'light' };
+
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
+
     case 'ADD_CATEGORY':
-      return { ...state, categories: [...new Set([...state.categories, action.payload])] };
-    case 'BULK_UPDATE':
-      newState = { ...state, tasks: state.tasks.map(t => action.payload.ids.includes(t.id) ? { ...t, ...action.payload.updates } : t) };
-      break;
-    case 'UNDO':
-      if (state.historyIndex > 0) {
-        return { ...state, tasks: state.history[state.historyIndex - 1], historyIndex: state.historyIndex - 1 };
-      }
-      return state;
+      return { ...state, categories: [...state.categories, action.payload] };
+
+    case 'DELETE_CATEGORY':
+      return { ...state, categories: state.categories.filter(c => c._id !== action.payload) };
+
+    case 'CLEAR_COMPLETED':
+      return { ...state, tasks: state.tasks.filter(t => !t.completed) };
+
+    case 'RESET_STATE':
+      return { ...initialState, theme: state.theme };
+
     case 'RESET_PRODUCTIVITY':
-      // Reset productivity-related data while keeping active tasks
-      const resetTasks = state.tasks.map(task => ({
-        ...task,
-        completed: false,
-        completedAt: null,
-        // Keep the task but reset completion status
-      }));
-
-      // Clear analytics cache
-      localStorage.removeItem('ai-analytics-cache');
-
-      newState = {
+      return {
         ...state,
-        tasks: resetTasks
+        tasks: state.tasks.map(task => ({
+          ...task,
+          completed: false,
+          completedAt: null
+        }))
       };
-      break;
-    case 'REDO':
-      if (state.historyIndex < state.history.length - 1) {
-        return { ...state, tasks: state.history[state.historyIndex + 1], historyIndex: state.historyIndex + 1 };
-      }
-      return state;
+
     default:
       return state;
   }
-  // Save to history for undo/redo
-  const newHistory = [...state.history.slice(0, state.historyIndex + 1), newState.tasks];
-  return { ...newState, history: newHistory.slice(-50), historyIndex: newHistory.length - 1 };
 }
 
 export function TodoProvider({ children }) {
   const [state, dispatch] = useReducer(todoReducer, initialState);
+  const auth = useAuth();
+  const isAuthenticated = auth?.isAuthenticated ?? false;
+  const user = auth?.user ?? null;
 
+  // Load tasks from API when authenticated
+  const loadTasks = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    dispatch({ type: 'SET_LOADING', payload: true });
+    try {
+      const response = await api.getTasks();
+      dispatch({ type: 'LOAD_TASKS', payload: response.data });
+    } catch (error) {
+      console.error('Failed to load tasks:', error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  }, [isAuthenticated]);
+
+  // Load categories from API
+  const loadCategories = useCallback(async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const response = await api.getCategories();
+      dispatch({ type: 'LOAD_CATEGORIES', payload: response.data });
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  }, [isAuthenticated]);
+
+  // Load data when authenticated
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        // Validate the loaded data
-        if (parsed && typeof parsed === 'object') {
-          dispatch({ type: 'LOAD_STATE', payload: parsed });
-        }
-      } catch (e) {
-        console.error('Failed to load state:', e);
-        // Clear corrupted data
-        localStorage.removeItem(STORAGE_KEY);
+    if (isAuthenticated) {
+      loadTasks();
+      loadCategories();
+    } else {
+      dispatch({ type: 'RESET_STATE' });
+    }
+  }, [isAuthenticated, loadTasks, loadCategories]);
+
+  // Load theme from user profile or localStorage
+  useEffect(() => {
+    if (user?.theme) {
+      dispatch({ type: 'SET_THEME', payload: user.theme });
+    } else {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        dispatch({ type: 'SET_THEME', payload: savedTheme });
       }
     }
-  }, []);
+  }, [user]);
 
-  useEffect(() => {
-    try {
-      const { history, historyIndex, ...toSave } = state;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-    } catch (e) {
-      console.error('Failed to save state:', e);
-    }
-  }, [state]);
-
+  // Apply theme to document
   useEffect(() => {
     document.documentElement.classList.toggle('dark', state.theme === 'dark');
+    localStorage.setItem('theme', state.theme);
   }, [state.theme]);
 
-  return <TodoContext.Provider value={{ state, dispatch }}>{children}</TodoContext.Provider>;
+  // Enhanced dispatch with API calls
+  const enhancedDispatch = useCallback(async (action) => {
+    // If not authenticated, just update local state for theme
+    if (!isAuthenticated && action.type !== 'TOGGLE_THEME' && action.type !== 'SET_FILTER') {
+      return;
+    }
+
+    try {
+      switch (action.type) {
+        case 'ADD_TASK': {
+          const response = await api.createTask(action.payload);
+          dispatch({ type: 'ADD_TASK', payload: response.data });
+          break;
+        }
+
+        case 'ADD_MULTIPLE_TASKS': {
+          const response = await api.createBulkTasks(action.payload);
+          dispatch({ type: 'ADD_MULTIPLE_TASKS', payload: response.data });
+          break;
+        }
+
+        case 'UPDATE_TASK': {
+          const { _id, id, ...updates } = action.payload;
+          const taskId = _id || id;
+          const response = await api.updateTask(taskId, updates);
+          dispatch({ type: 'UPDATE_TASK', payload: response.data });
+          break;
+        }
+
+        case 'DELETE_TASK': {
+          await api.deleteTask(action.payload);
+          dispatch({ type: 'DELETE_TASK', payload: action.payload });
+          break;
+        }
+
+        case 'TOGGLE_TASK':
+        case 'TOGGLE_COMPLETE': {
+          const taskId = action.payload._id || action.payload;
+          const response = await api.toggleTask(taskId);
+          dispatch({ type: 'TOGGLE_COMPLETE', payload: response.data });
+          break;
+        }
+
+        case 'REORDER_TASKS': {
+          const tasksWithOrder = action.payload.map((task, index) => ({
+            id: task._id,
+            sortOrder: index
+          }));
+          await api.reorderTasks(tasksWithOrder);
+          dispatch({ type: 'REORDER_TASKS', payload: action.payload });
+          break;
+        }
+
+        case 'ADD_CATEGORY': {
+          const response = await api.createCategory({ name: action.payload });
+          dispatch({ type: 'ADD_CATEGORY', payload: response.data });
+          break;
+        }
+
+        case 'DELETE_CATEGORY': {
+          await api.deleteCategory(action.payload);
+          dispatch({ type: 'DELETE_CATEGORY', payload: action.payload });
+          break;
+        }
+
+        case 'CLEAR_COMPLETED': {
+          await api.clearCompleted();
+          dispatch({ type: 'CLEAR_COMPLETED' });
+          break;
+        }
+
+        case 'RESET_PRODUCTIVITY': {
+          await api.resetProductivity();
+          dispatch({ type: 'RESET_PRODUCTIVITY' });
+          await loadTasks(); // Reload tasks after reset
+          break;
+        }
+
+        case 'TOGGLE_THEME': {
+          dispatch({ type: 'TOGGLE_THEME' });
+          if (isAuthenticated) {
+            const newTheme = state.theme === 'light' ? 'dark' : 'light';
+            api.updateProfile({ theme: newTheme }).catch(console.error);
+          }
+          break;
+        }
+
+        case 'SET_VIEW_MODE': {
+          dispatch({ type: 'SET_VIEW_MODE', payload: action.payload });
+          if (isAuthenticated) {
+            api.updateProfile({ viewMode: action.payload }).catch(console.error);
+          }
+          break;
+        }
+
+        case 'SET_FILTER':
+          dispatch(action);
+          break;
+
+        default:
+          dispatch(action);
+      }
+    } catch (error) {
+      console.error(`Action ${action.type} failed:`, error);
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    }
+  }, [isAuthenticated, state.theme, loadTasks]);
+
+  return (
+    <TodoContext.Provider value={{ state, dispatch: enhancedDispatch, loadTasks, loadCategories }}>
+      {children}
+    </TodoContext.Provider>
+  );
 }
 
 export const useTodo = () => {

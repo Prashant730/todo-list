@@ -74,12 +74,17 @@ export default function Sidebar() {
               className={`w-full text-left px-3 py-2.5 rounded-lg transition text-sm ${state.filter.category === 'all' ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--bg-tertiary)]'}`}>
               All Categories
             </button>
-            {state.categories.map(cat => (
-              <button key={cat} onClick={() => dispatch({ type: 'SET_FILTER', payload: { category: cat } })}
-                className={`w-full text-left px-3 py-2.5 rounded-lg transition text-sm ${state.filter.category === cat ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--bg-tertiary)]'}`}>
-                {cat}
-              </button>
-            ))}
+            {state.categories.map(cat => {
+              // Handle both string categories and object categories from API
+              const catName = typeof cat === 'string' ? cat : cat.name;
+              const catId = typeof cat === 'string' ? cat : cat._id;
+              return (
+                <button key={catId} onClick={() => dispatch({ type: 'SET_FILTER', payload: { category: catName } })}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg transition text-sm ${state.filter.category === catName ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--bg-tertiary)]'}`}>
+                  {catName}
+                </button>
+              );
+            })}
           </nav>
         </div>
 

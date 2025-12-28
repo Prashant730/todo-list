@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FiZap, FiTrendingUp, FiAlertTriangle, FiTarget, FiClock, FiAward, FiRefreshCw, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiZap, FiTrendingUp, FiAlertTriangle, FiTarget, FiClock, FiAward, FiRefreshCw, FiChevronDown, FiChevronUp, FiBarChart2 } from 'react-icons/fi';
 import { aiService } from '../services/aiService.js';
 import { useTodo } from '../context/TodoContext';
 import { format, parseISO, isPast, isToday, differenceInDays, startOfWeek, endOfWeek, isWithinInterval, subDays } from 'date-fns';
@@ -172,7 +172,26 @@ export default function AIInsights() {
     }
   }, [aiAvailable, state.tasks.length, localInsights.overdueTasks.length, localInsights.totalCompleted]);
 
-  const saveApiKey = (key) => {
+  // Listen for refresh event from QuickActions
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (aiAvailable) {
+        generateAIInsights();
+      }
+    };
+    window.addEventListener('refreshAIInsights', handleRefresh);
+    return () => window.removeEventListener('refreshAIInsights', handleRefresh);
+  }, [aiAvailable]);
+
+  // Scroll to AI Analytics Dashboard
+  const scrollToAnalytics = () => {
+    const analyticsSection = document.querySelector('[data-analytics-dashboard]');
+    if (analyticsSection) {
+      analyticsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const _saveApiKey = (_key) => {
     // This function is no longer needed as we use centralized AI service
     console.log('API key management is now handled by the centralized AI service');
   };
@@ -251,6 +270,12 @@ export default function AIInsights() {
               AI Offline - Showing Local Insights
             </span>
           )}
+          <button onClick={scrollToAnalytics}
+            className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition flex items-center gap-1 text-sm text-purple-500"
+            title="View full analytics dashboard">
+            <FiBarChart2 size={18} />
+            <span className="hidden sm:inline">Full Analytics</span>
+          </button>
           {aiAvailable && (
             <button onClick={(e) => { e.stopPropagation(); generateAIInsights(); }}
               className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition" title="Refresh insights">

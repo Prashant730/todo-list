@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { FiPlus, FiZap, FiCalendar, FiClock, FiTarget, FiStar, FiSun, FiX } from 'react-icons/fi';
+import { FiPlus, FiZap, FiCalendar, FiClock, FiTarget, FiStar, FiSun, FiX, FiTrendingUp } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
+import { aiService } from '../services/aiService.js';
 import { format, addDays, addHours, endOfWeek } from 'date-fns';
 
 export default function QuickActions({ onAddTask }) {
-  const { dispatch } = useTodo();
+  const { state, dispatch } = useTodo();
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showScheduleSelect, setShowScheduleSelect] = useState(false);
   const [quickTitle, setQuickTitle] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   // Listen for openNewTaskMenu event from TaskList empty state
   useEffect(() => {
@@ -85,9 +87,36 @@ export default function QuickActions({ onAddTask }) {
     onAddTask({ scheduleType: type, dueDate });
   };
 
+  // Generate AI suggestions for tasks
+  const generateAISuggestions = async () => {
+    if (aiLoading || state.tasks.length === 0) return;
+
+    setAiLoading(true);
+    try {
+      const suggestions = await aiService.generateInsights(state.tasks);
+      if (suggestions && suggestions.length > 0) {
+        // Dispatch event to scroll to AI Insights section
+        window.dispatchEvent(new CustomEvent('scrollToAIInsights'));
+        // Trigger refresh in AIInsights component
+        window.dispatchEvent(new CustomEvent('refreshAIInsights'));
+      }
+    } catch (error) {
+      console.error('AI suggestion error:', error);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
+        <button onClick={generateAISuggestions}
+          disabled={aiLoading || state.tasks.length === 0}
+          className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg hover:from-purple-500/20 hover:to-blue-500/20 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Get AI-powered insights">
+          <FiTrendingUp size={16} className={`text-purple-500 ${aiLoading ? 'animate-pulse' : ''}`} />
+          <span className="hidden sm:inline">{aiLoading ? 'Analyzing...' : 'AI Insights'}</span>
+        </button>
         <button onClick={() => setShowQuickAdd(!showQuickAdd)}
           className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-secondary)] rounded-lg hover:bg-[var(--bg-tertiary)] transition text-sm">
           <FiZap size={16} /> Quick Add

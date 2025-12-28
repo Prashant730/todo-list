@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { FiZap, FiCheck, FiX, FiEdit3, FiCalendar, FiClock, FiTarget } from 'react-icons/fi';
 import { aiService } from '../services/aiService.js';
-import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 import { useTodo } from '../context/TodoContext';
 import { handleApiError, showErrorNotification } from '../utils/errorHandler';
 import { validateTask } from '../utils/validation';
 
-export default function AITaskBreakdown({ task, onAccept, onReject, onEdit }) {
-  const { state } = useTodo();
+export default function AITaskBreakdown({ task, onAccept, onReject, onEdit: _onEdit }) {
+  const { state: _state } = useTodo();
   const [breakdown, setBreakdown] = useState(null);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editedBreakdown, setEditedBreakdown] = useState(null);
-  const [error, setError] = useState(null);
+  const [_error, setError] = useState(null);
 
   const generateBreakdown = async () => {
     const taskValidation = validateTask(task);

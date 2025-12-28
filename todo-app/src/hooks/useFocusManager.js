@@ -51,17 +51,19 @@ export function useFocusManager() {
           event.preventDefault()
           focusPrevious(currentKey)
           break
-        case 'Home':
+        case 'Home': {
           event.preventDefault()
           const firstKey = Array.from(focusableElements.current.keys())[0]
           focusElement(firstKey)
           break
-        case 'End':
+        }
+        case 'End': {
           event.preventDefault()
           const keys = Array.from(focusableElements.current.keys())
           const lastKey = keys[keys.length - 1]
           focusElement(lastKey)
           break
+        }
       }
     },
     [focusNext, focusPrevious, focusElement]

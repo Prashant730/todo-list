@@ -45,12 +45,12 @@ const defaultTemplates = [
 ];
 
 export default function TaskTemplates({ onClose, onCreateTasks }) {
-  const { state } = useTodo();
+  const { state: _state } = useTodo();
   const [templates, setTemplates] = useState(() => {
     const saved = localStorage.getItem('task-templates');
     return saved ? JSON.parse(saved) : defaultTemplates;
   });
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [_selectedTemplate, _setSelectedTemplate] = useState(null);
   const [editingTemplate, setEditingTemplate] = useState(null);
 
   const saveTemplates = (newTemplates) => {
@@ -58,7 +58,7 @@ export default function TaskTemplates({ onClose, onCreateTasks }) {
     localStorage.setItem('task-templates', JSON.stringify(newTemplates));
   };
 
-  const useTemplate = (template) => {
+  const applyTemplate = (template) => {
     const baseDueDate = new Date();
     baseDueDate.setHours(baseDueDate.getHours() + 2); // Start 2 hours from now
 
@@ -161,7 +161,7 @@ export default function TaskTemplates({ onClose, onCreateTasks }) {
                   </span>
                 </div>
 
-                <button onClick={() => useTemplate(template)}
+                <button onClick={() => applyTemplate(template)}
                   className="w-full btn-primary py-2 rounded-lg text-sm">
                   Use Template ({template.tasks.length} tasks)
                 </button>

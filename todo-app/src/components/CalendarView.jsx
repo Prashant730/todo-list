@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, addMonths, subMonths } from 'date-fns';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { useTodo } from '../context/TodoContext';
 
@@ -21,7 +21,7 @@ export default function CalendarView({ onEditTask }) {
           const dateKey = format(parseISO(task.dueDate), 'yyyy-MM-dd');
           if (!map[dateKey]) map[dateKey] = [];
           map[dateKey].push(task);
-        } catch (error) {
+        } catch (_error) {
           console.warn('Invalid date format for task:', task.title, task.dueDate);
         }
       }

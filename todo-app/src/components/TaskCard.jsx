@@ -12,7 +12,11 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
   const { dispatch } = useTodo();
   const [expanded, setExpanded] = useState(false);
   const [showAIBreakdown, setShowAIBreakdown] = useState(false);
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
+
+  // Use _id from MongoDB or fallback to id
+  const taskId = task._id || task.id;
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: taskId });
 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const isOverdue = task.dueDate && isPast(parseISO(task.dueDate)) && !task.completed;
@@ -20,11 +24,12 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
   // Check if this task could benefit from AI breakdown
   const canBreakdown = task.dueDate && differenceInDays(parseISO(task.dueDate), new Date()) >= 3 && !task.completed;
 
-  const handleAIBreakdownAccept = (breakdown) => {
+  const handleAIBreakdownAccept = async (breakdown) => {
     // Create daily subtasks
+    const subtasks = [];
     breakdown.dailyTasks.forEach(day => {
       day.tasks.forEach(subtask => {
-        const dailyTask = {
+        subtasks.push({
           title: subtask.title,
           description: subtask.description,
           priority: subtask.priority,
@@ -32,10 +37,13 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
           dueDate: day.date + 'T12:00',
           parentTask: task.title,
           estimatedTime: subtask.estimatedTime
-        };
-        dispatch({ type: 'ADD_TASK', payload: dailyTask });
+        });
       });
     });
+
+    if (subtasks.length > 0) {
+      await dispatch({ type: 'ADD_MULTIPLE_TASKS', payload: subtasks });
+    }
     setShowAIBreakdown(false);
   };
 
@@ -44,7 +52,7 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
       case 'Enter':
       case ' ':
         e.preventDefault();
-        dispatch({ type: 'TOGGLE_COMPLETE', payload: task.id });
+        dispatch({ type: 'TOGGLE_TASK', payload: taskId });
         break;
       case 'e':
       case 'E':
@@ -54,7 +62,7 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
       case 'Delete':
       case 'Backspace':
         e.preventDefault();
-        dispatch({ type: 'DELETE_TASK', payload: task.id });
+        dispatch({ type: 'DELETE_TASK', payload: taskId });
         break;
       default:
         if (onKeyNavigation) {
@@ -74,7 +82,7 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
         onKeyDown={handleKeyDown}
         role="listitem"
         aria-label={`Task: ${task.title}${task.completed ? ' (completed)' : ''}${isOverdue ? ' (overdue)' : ''}`}
-        aria-describedby={`task-${task.id}-details`}
+        aria-describedby={`task-${taskId}-details`}
       >
         <div className="flex items-start gap-3">
           <button
@@ -86,7 +94,7 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
             ⋮⋮
           </button>
           <button
-            onClick={() => dispatch({ type: 'TOGGLE_COMPLETE', payload: task.id })}
+            onClick={() => dispatch({ type: 'TOGGLE_TASK', payload: taskId })}
             className={`mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-[var(--accent)] ${task.completed ? 'bg-[var(--success)] border-[var(--success)]' : 'border-[var(--border-color)] hover:border-[var(--accent)]'}`}
             aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
             aria-pressed={task.completed}
@@ -98,11 +106,11 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
               {task.title}
             </h3>
             {task.description && expanded && (
-              <p className="text-sm text-[var(--text-secondary)] mt-1" id={`task-${task.id}-description`}>
+              <p className="text-sm text-[var(--text-secondary)] mt-1" id={`task-${taskId}-description`}>
                 {task.description}
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs" id={`task-${task.id}-details`}>
+            <div className="flex flex-wrap items-center gap-2 mt-2 text-xs" id={`task-${taskId}-details`}>
               {task.dueDate && (
                 <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500' : 'text-[var(--text-secondary)]'}`}>
                   <FiCalendar size={12} aria-hidden="true" />
@@ -113,11 +121,15 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
                 </span>
               )}
               {/* Display multiple categories */}
-              {(task.categories || (task.category ? [task.category] : [])).map(category => (
-                <span key={category} className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded-full">
-                  {category}
-                </span>
-              ))}
+              {(task.categories || (task.category ? [task.category] : [])).map(category => {
+                const catName = typeof category === 'string' ? category : category?.name || '';
+                const catId = typeof category === 'string' ? category : category?._id || category?.name || '';
+                return (
+                  <span key={catId} className="px-2 py-0.5 bg-[var(--bg-tertiary)] rounded-full">
+                    {catName}
+                  </span>
+                );
+              })}
               {task.priority && (
                 <span className={`font-medium ${priorityColors[task.priority]}`}>
                   {task.priority} priority
@@ -153,7 +165,7 @@ export default function TaskCard({ task, onEdit, focusKey, onKeyNavigation }) {
               <FiEdit2 size={16} />
             </button>
             <button
-              onClick={() => dispatch({ type: 'DELETE_TASK', payload: task.id })}
+              onClick={() => dispatch({ type: 'DELETE_TASK', payload: taskId })}
               className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition focus:outline-none focus:ring-2 focus:ring-red-500"
               aria-label="Delete task"
             >
