@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
-    include: ['react', 'react-dom'],
+    include: ['react', 'react-dom', '@google/generative-ai'],
     force: true,
   },
   build: {
@@ -20,6 +20,7 @@ export default defineConfig({
           charts: ['recharts'],
           icons: ['react-icons'],
           utils: ['date-fns', 'uuid'],
+          ai: ['@google/generative-ai'],
         },
       },
     },

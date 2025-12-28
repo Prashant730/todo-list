@@ -124,11 +124,16 @@ class AIService {
   }
 
   async callGemini(prompt) {
-    const { GoogleGenerativeAI } = await import('@google/generative-ai')
-    const genAI = new GoogleGenerativeAI(this.apiKey)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-    const result = await model.generateContent(prompt)
-    return result.response.text()
+    try {
+      const { GoogleGenerativeAI } = await import('@google/generative-ai')
+      const genAI = new GoogleGenerativeAI(this.apiKey)
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+      const result = await model.generateContent(prompt)
+      return result.response.text()
+    } catch (error) {
+      console.error('Gemini import/call failed:', error)
+      throw new Error('Gemini AI service unavailable')
+    }
   }
 
   async generateInsights(tasks) {
